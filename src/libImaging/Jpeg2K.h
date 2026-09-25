@@ -38,6 +38,10 @@ typedef struct {
     /* Set to limit the number of quality layers to decode (0 = all layers) */
     int layers;
 
+    /* Enumerated color space from the JP2 header, used if OpenJPEG does not
+       report the color space (0 = not specified) */
+    int enumcs;
+
     /* PRIVATE CONTEXT (set by decoder) */
     const char *error_msg;
 

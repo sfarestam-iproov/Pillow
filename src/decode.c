@@ -923,9 +923,10 @@ PyImaging_Jpeg2KDecoderNew(PyObject *self, PyObject *args) {
     int layers = 0;
     int fd = -1;
     PY_LONG_LONG length = -1;
+    int enumcs = 0;
 
     if (!PyArg_ParseTuple(
-            args, "ss|iiiL", &mode, &format, &reduce, &layers, &fd, &length
+            args, "ss|iiiLi", &mode, &format, &reduce, &layers, &fd, &length, &enumcs
         )) {
         return NULL;
     }
@@ -955,6 +956,7 @@ PyImaging_Jpeg2KDecoderNew(PyObject *self, PyObject *args) {
     context->format = codec_format;
     context->reduce = reduce;
     context->layers = layers;
+    context->enumcs = enumcs;
 
     return (PyObject *)decoder;
 }

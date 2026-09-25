@@ -161,10 +161,11 @@ def _parse_jp2_header(
     str | None,
     tuple[float, float] | None,
     ImagePalette.ImagePalette | None,
+    int,
 ]:
     """Parse the JP2 header box to extract size, component count,
     color space information, and optionally DPI information,
-    returning a (size, mode, mimetype, dpi) tuple."""
+    returning a (size, mode, mimetype, dpi, palette, enumcs) tuple."""
 
     # Find the JP2 header box
     reader = BoxReader(fp)
@@ -188,6 +189,7 @@ def _parse_jp2_header(
     dpi = None  # 2-tuple of DPI info, or None
     palette = None
     colr = None
+    color_space = 0  # enumerated color space, or 0 if not specified
 
     while header.has_next_box():
         tbox = header.next_box_type()
@@ -211,6 +213,8 @@ def _parse_jp2_header(
         elif tbox == b"colr":
             meth, _, _, enumcs = header.read_fields(">BBBI")
             if meth == 1:
+                assert isinstance(enumcs, int)
+                color_space = enumcs
                 if enumcs in (0, 15):
                     colr = "1"
                 elif enumcs == 12:
@@ -263,7 +267,7 @@ def _parse_jp2_header(
         msg = "Malformed JP2 header"
         raise SyntaxError(msg)
 
-    return size, mode, mimetype, dpi, palette
+    return size, mode, mimetype, dpi, palette, color_space
 
 
 ##
@@ -276,6 +280,7 @@ class Jpeg2KImageFile(ImageFile.ImageFile):
 
     def _open(self) -> None:
         assert self.fp is not None
+        color_space = 0
         sig = self.fp.read(4)
         if sig == b"\xff\x4f\xff\x51":
             self.codec = "j2k"
@@ -287,7 +292,14 @@ class Jpeg2KImageFile(ImageFile.ImageFile):
             if sig == b"\x00\x00\x00\x0cjP  \x0d\x0a\x87\x0a":
                 self.codec = "jp2"
                 header = _parse_jp2_header(self.fp)
-                self._size, self._mode, self.custom_mimetype, dpi, self.palette = header
+                (
+                    self._size,
+                    self._mode,
+                    self.custom_mimetype,
+                    dpi,
+                    self.palette,
+                    color_space,
+                ) = header
                 if dpi is not None:
                     self.info["dpi"] = dpi
                 if self.fp.read(12).endswith(b"jp2c\xff\x4f\xff\x51"):
@@ -323,7 +335,7 @@ class Jpeg2KImageFile(ImageFile.ImageFile):
                 "jpeg2k",
                 (0, 0, *self.size),
                 0,
-                (self.codec, self._reduce, self.layers, fd, length),
+                (self.codec, self._reduce, self.layers, fd, length, color_space),
             )
         ]
 
@@ -377,7 +389,7 @@ class Jpeg2KImageFile(ImageFile.ImageFile):
             # Update the reduce and layers settings
             t = self.tile[0]
             assert isinstance(t[3], tuple)
-            t3 = (t[3][0], self._reduce, self.layers, t[3][3], t[3][4])
+            t3 = (t[3][0], self._reduce, self.layers, *t[3][3:])
             self.tile = [ImageFile._Tile(t[0], (0, 0, *self.size), t[2], t3)]
 
         return ImageFile.ImageFile.load(self)

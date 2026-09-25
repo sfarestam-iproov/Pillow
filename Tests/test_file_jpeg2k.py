@@ -21,6 +21,7 @@ from .helper import (
     assert_image_equal,
     assert_image_similar,
     assert_image_similar_tofile,
+    hopper,
     skip_unless_feature,
     skip_unless_feature_version,
 )
@@ -360,10 +361,23 @@ def test_grayscale_four_channels() -> None:
         assert im.mode == "RGBA"
 
 
+def test_sycc() -> None:
+    im = hopper("YCbCr")
+    out = BytesIO()
+    Image.merge("RGB", im.split()).save(out, "JPEG2000", mct=0)
+    data = out.getvalue()
+
+    # Change the enumerated color space to sYCC
+    offset = data.index(b"colr") + 7
+    data = data[:offset] + struct.pack(">I", 18) + data[offset + 4 :]
+
+    with Image.open(BytesIO(data)) as reloaded:
+        assert_image_equal(reloaded, im.convert("RGB"))
+
+
 @pytest.mark.skipif(
     not os.path.exists(EXTRA_DIR), reason="Extra image files not installed"
 )
-@skip_unless_feature_version("jpg_2000", "2.5.1")
 def test_cmyk() -> None:
     with Image.open(f"{EXTRA_DIR}/issue205.jp2") as im:
         assert im.mode == "CMYK"

@@ -744,6 +744,25 @@ j2k_decode_entry(Imaging im, ImagingCodecState state) {
     /* Find the correct unpacker */
     color_space = image->color_space;
 
+    /* Before OpenJPEG 2.5.1, the color space is not set from the JP2 header
+       when decoding tile by tile, so use the header's value directly */
+    if (color_space == OPJ_CLRSPC_UNKNOWN || color_space == OPJ_CLRSPC_UNSPECIFIED) {
+        switch (context->enumcs) {
+            case 12:
+                color_space = OPJ_CLRSPC_CMYK;
+                break;
+            case 16:
+                color_space = OPJ_CLRSPC_SRGB;
+                break;
+            case 17:
+                color_space = OPJ_CLRSPC_GRAY;
+                break;
+            case 18:
+                color_space = OPJ_CLRSPC_SYCC;
+                break;
+        }
+    }
+
     if (color_space == OPJ_CLRSPC_UNKNOWN || color_space == OPJ_CLRSPC_UNSPECIFIED) {
         switch (image->numcomps) {
             case 1:
